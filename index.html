@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Excel2JSON</title>
+  <style>
+    #preview {
+      border: 1px solid #ccc;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Excel文件转换为JSON</h1>
+
+  <input type="file" id="excelFile" accept=".xlsx, .xls" />
+  <button onclick="previewSomeJSON()">预览JSON</button>
+  <button onclick="previewAll()">预览全部</button>
+  <button onclick="downloadJSON()">下载JSON</button>
+  <button onclick="reset()">重置</button>
+
+  <h2>预览区域</h2>
+  <div id="preview"></div>
+
+  <script>
+    var jsonData = null;
+    var previewRowCount = 1;
+
+    function previewAll() {
+      previewRowCount = Infinity;
+      convertToJSON();
+    }
+
+    function convertToJSON() {
+      var fileInput = document.getElementById('excelFile');
+      var file = fileInput.files[0];
+
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, { type: 'array' });
+
+        jsonData = {};
+
+        workbook.SheetNames.forEach(function (sheetName) {
+          var worksheet = workbook.Sheets[sheetName];
+          var sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          var headers = sheetData[0];
+          var sheetContent = [];
+
+          for (var i = 1; i < Math.min(sheetData.length, previewRowCount + 1); i++) {
+            var row = sheetData[i];
+            var rowData = {};
+
+            for (var j = 0; j < headers.length; j++) {
+              var header = headers[j];
+              var value = row[j];
+
+              rowData[header] = value;
+            }
+
+            sheetContent.push(rowData);
+          }
+
+          jsonData[sheetName] = sheetContent;
+        });
+
+        var preview = document.getElementById('preview');
+        preview.innerHTML = JSON.stringify(jsonData, null, 2);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function previewSomeJSON() {
+      previewRowCount = 1;
+      convertToJSON();
+    }
+
+    function downloadJSON() {
+      if (jsonData) {
+        var jsonContent = JSON.stringify(jsonData, null, 2);
+        var blob = new Blob([jsonContent], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'data.json';
+        a.click();
+
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function reset() {
+      var fileInput = document.getElementById('excelFile');
+      fileInput.value = '';
+
+      var preview = document.getElementById('preview');
+      preview.innerHTML = '';
+
+      jsonData = null;
+      previewRowCount = 10;
+    }
+  </script>
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+</body>
+
+</html>
